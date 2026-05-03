@@ -97,7 +97,7 @@ def validate_inputs(criteria_df: pd.DataFrame, matrix_df: pd.DataFrame) -> tuple
         except ValueError:
             return np.nan
 
-    numeric_block = work_matrix[criteria_codes].applymap(_extract_numeric)
+    numeric_block = work_matrix[criteria_codes].apply(lambda col: col.map(_extract_numeric))
     if numeric_block.isna().any().any():
         errors.append("Semua nilai matriks keputusan harus terisi dan bernilai numerik.")
 

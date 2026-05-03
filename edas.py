@@ -37,7 +37,7 @@ def calculate_edas(criteria_df: pd.DataFrame, matrix_df: pd.DataFrame) -> dict:
     criteria["Jenis"] = criteria["Jenis"].astype(str).str.strip().str.title()
     criteria["Bobot"] = pd.to_numeric(criteria["Bobot"], errors="coerce")
 
-    decision_values = matrix[criteria_codes].applymap(_extract_numeric)
+    decision_values = matrix[criteria_codes].apply(lambda col: col.map(_extract_numeric))
     if decision_values.isna().any().any():
         raise ValueError(
             "Semua nilai matriks keputusan harus mengandung angka valid. "
