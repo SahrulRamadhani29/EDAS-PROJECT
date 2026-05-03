@@ -116,62 +116,65 @@ if "show_validation" not in st.session_state:
 tab1, tab2, tab3, tab4 = st.tabs(["Input Data", "Matriks Keputusan", "Perhitungan EDAS", "Ranking Akhir"])
 
 with tab1:
-    col_a, col_b = st.columns(2)
-    with col_a:
-        n_criteria = st.number_input("Jumlah Kriteria", min_value=1, step=1, value=3)
-    with col_b:
-        n_alternatives = st.number_input("Jumlah Alternatif", min_value=1, step=1, value=5)
+    with st.form("input_form"):
+        col_a, col_b = st.columns(2)
+        with col_a:
+            n_criteria = st.number_input("Jumlah Kriteria", min_value=1, step=1, value=3)
+        with col_b:
+            n_alternatives = st.number_input("Jumlah Alternatif", min_value=1, step=1, value=5)
 
-    n_criteria = int(n_criteria)
-    n_alternatives = int(n_alternatives)
+        n_criteria = int(n_criteria)
+        n_alternatives = int(n_alternatives)
 
-    criteria_default = build_default_criteria(n_criteria)
-    if "criteria_data" not in st.session_state or len(st.session_state["criteria_data"]) != n_criteria:
-        st.session_state["criteria_data"] = criteria_default
-    criteria_df = st.data_editor(
-        st.session_state["criteria_data"],
-        use_container_width=True,
-        num_rows="fixed",
-        key="criteria_editor",
-        column_config={
-            "Kode": st.column_config.TextColumn("Kode"),
-            "Nama Kriteria": st.column_config.TextColumn("Nama Kriteria"),
-            "Jenis": st.column_config.SelectboxColumn("Jenis", options=["Benefit", "Cost"]),
-            "Bobot": st.column_config.NumberColumn("Bobot"),
-        },
-    )
+        criteria_default = build_default_criteria(n_criteria)
+        if "criteria_data" not in st.session_state or len(st.session_state["criteria_data"]) != n_criteria:
+            st.session_state["criteria_data"] = criteria_default
+        criteria_df = st.data_editor(
+            st.session_state["criteria_data"],
+            use_container_width=True,
+            num_rows="fixed",
+            key="criteria_editor",
+            column_config={
+                "Kode": st.column_config.TextColumn("Kode"),
+                "Nama Kriteria": st.column_config.TextColumn("Nama Kriteria"),
+                "Jenis": st.column_config.SelectboxColumn("Jenis", options=["Benefit", "Cost"]),
+                "Bobot": st.column_config.NumberColumn("Bobot"),
+            },
+        )
+
+        criteria_codes = criteria_df["Kode"].astype(str).str.strip().tolist()
+        matrix_default = build_default_matrix(n_alternatives, criteria_codes)
+        matrix_needs_reset = (
+            "matrix_data" not in st.session_state
+            or len(st.session_state["matrix_data"]) != n_alternatives
+            or list(st.session_state["matrix_data"].columns) != ["Alternatif"] + criteria_codes
+        )
+        if matrix_needs_reset:
+            st.session_state["matrix_data"] = matrix_default
+        matrix_df = st.data_editor(
+            st.session_state["matrix_data"],
+            use_container_width=True,
+            num_rows="fixed",
+            key="matrix_editor",
+            column_config={
+                "Alternatif": st.column_config.TextColumn("Alternatif"),
+                **{code: st.column_config.TextColumn(code) for code in criteria_codes},
+            },
+        )
+
+        submitted = st.form_submit_button("Hitung EDAS", type="primary")
+
     st.session_state["criteria_data"] = criteria_df
-
-    criteria_codes = criteria_df["Kode"].astype(str).str.strip().tolist()
-    matrix_default = build_default_matrix(n_alternatives, criteria_codes)
-    matrix_needs_reset = (
-        "matrix_data" not in st.session_state
-        or len(st.session_state["matrix_data"]) != n_alternatives
-        or list(st.session_state["matrix_data"].columns) != ["Alternatif"] + criteria_codes
-    )
-    if matrix_needs_reset:
-        st.session_state["matrix_data"] = matrix_default
-    matrix_df = st.data_editor(
-        st.session_state["matrix_data"],
-        use_container_width=True,
-        num_rows="fixed",
-        key="matrix_editor",
-        column_config={
-            "Alternatif": st.column_config.TextColumn("Alternatif"),
-            **{code: st.column_config.TextColumn(code) for code in criteria_codes},
-        },
-    )
     st.session_state["matrix_data"] = matrix_df
 
-    can_calculate, errors, warnings = validate_inputs(criteria_df, matrix_df)
-    if st.session_state["show_validation"]:
+    if submitted:
+        st.session_state["show_validation"] = True
+        can_calculate, errors, warnings = validate_inputs(criteria_df, matrix_df)
         for warning_msg in warnings:
             st.warning(warning_msg)
         for error_msg in errors:
             st.error(error_msg)
 
-    if st.button("Hitung EDAS", type="primary"):
-        st.session_state["show_validation"] = True
         if not can_calculate:
             st.error("Perhitungan dibatalkan karena masih ada kesalahan input.")
         else:
