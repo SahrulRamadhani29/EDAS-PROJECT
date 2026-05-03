@@ -110,6 +110,8 @@ st.info("Seluruh data bersifat dinamis dan wajib diinput oleh pengguna. Aplikasi
 
 if "results" not in st.session_state:
     st.session_state["results"] = None
+if "show_validation" not in st.session_state:
+    st.session_state["show_validation"] = False
 
 tab1, tab2, tab3, tab4 = st.tabs(["Input Data", "Matriks Keputusan", "Perhitungan EDAS", "Ranking Akhir"])
 
@@ -124,8 +126,10 @@ with tab1:
     n_alternatives = int(n_alternatives)
 
     criteria_default = build_default_criteria(n_criteria)
+    if "criteria_data" not in st.session_state or len(st.session_state["criteria_data"]) != n_criteria:
+        st.session_state["criteria_data"] = criteria_default
     criteria_df = st.data_editor(
-        criteria_default,
+        st.session_state["criteria_data"],
         use_container_width=True,
         num_rows="fixed",
         key="criteria_editor",
@@ -136,11 +140,19 @@ with tab1:
             "Bobot": st.column_config.NumberColumn("Bobot"),
         },
     )
+    st.session_state["criteria_data"] = criteria_df
 
     criteria_codes = criteria_df["Kode"].astype(str).str.strip().tolist()
     matrix_default = build_default_matrix(n_alternatives, criteria_codes)
+    matrix_needs_reset = (
+        "matrix_data" not in st.session_state
+        or len(st.session_state["matrix_data"]) != n_alternatives
+        or list(st.session_state["matrix_data"].columns) != ["Alternatif"] + criteria_codes
+    )
+    if matrix_needs_reset:
+        st.session_state["matrix_data"] = matrix_default
     matrix_df = st.data_editor(
-        matrix_default,
+        st.session_state["matrix_data"],
         use_container_width=True,
         num_rows="fixed",
         key="matrix_editor",
@@ -149,14 +161,17 @@ with tab1:
             **{code: st.column_config.TextColumn(code) for code in criteria_codes},
         },
     )
+    st.session_state["matrix_data"] = matrix_df
 
     can_calculate, errors, warnings = validate_inputs(criteria_df, matrix_df)
-    for warning_msg in warnings:
-        st.warning(warning_msg)
-    for error_msg in errors:
-        st.error(error_msg)
+    if st.session_state["show_validation"]:
+        for warning_msg in warnings:
+            st.warning(warning_msg)
+        for error_msg in errors:
+            st.error(error_msg)
 
     if st.button("Hitung EDAS", type="primary"):
+        st.session_state["show_validation"] = True
         if not can_calculate:
             st.error("Perhitungan dibatalkan karena masih ada kesalahan input.")
         else:
